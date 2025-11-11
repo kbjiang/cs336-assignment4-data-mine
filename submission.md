@@ -21,3 +21,16 @@
 #### extract_text
 1. With `fastwarc` and `resiliparse`. https://resiliparse.chatnoir.eu/en/stable/index.html
 1. `resiliparse` extraction keeps more layout of the text therefore I like it better.
+
+### 2.3 Language identification
+#### language_identification
+1. done
+1. there are several possible issues
+    1. when little text present, the model is less certain
+        1. when empty, the model defaults to `en`.
+    1. when mixed with numbers/symbols, the model is less certain
+    1. when mixed languages present, the model is less certain
+1. about 9/20 are `en`. I think the model is quite accurate, so I would accept its prediction with confidence score as low as `0.4`.
+
+### 2.4 PII
+#### language_identification

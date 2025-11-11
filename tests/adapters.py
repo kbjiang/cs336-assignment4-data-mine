@@ -18,7 +18,9 @@ def run_identify_language(text: str) -> tuple[Any, float]:
 
 
 def run_mask_emails(text: str) -> tuple[str, int]:
-    raise NotImplementedError
+    # raise NotImplementedError
+    from cs336_data.mask_pii import mask_email
+    return mask_email(text)
 
 
 def run_mask_phone_numbers(text: str) -> tuple[str, int]:
