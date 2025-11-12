@@ -24,11 +24,15 @@ def run_mask_emails(text: str) -> tuple[str, int]:
 
 
 def run_mask_phone_numbers(text: str) -> tuple[str, int]:
-    raise NotImplementedError
+    # raise NotImplementedError
+    from cs336_data.mask_pii import mask_phone
+    return mask_phone(text)
 
 
 def run_mask_ips(text: str) -> tuple[str, int]:
-    raise NotImplementedError
+    # raise NotImplementedError
+    from cs336_data.mask_pii import mask_ip
+    return mask_ip(text)
 
 
 def run_classify_nsfw(text: str) -> tuple[Any, float]:

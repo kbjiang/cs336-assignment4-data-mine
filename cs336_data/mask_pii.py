@@ -75,3 +75,29 @@ def mask_email(text: str, mask_str: str = "|||EMAIL_ADDRESS|||") -> str:
     result.append(text[last_end:])
     
     return ''.join(result), num_masked
+
+# mask US phone number
+
+# pattern
+# (\+1\s*)? - optional +1 followed by optional spaces
+# \(? - optional opening parenthesis
+# \d{3} - 3 digits
+# \)? - optional closing parenthesis
+# [\s-]? - at most one space or hyphen (the ? means zero or one)
+# \s* - zero or more additional spaces
+# \d{3} - 3 digits
+# [\s-]? - at most one space or hyphen
+# \s* - zero or more additional spaces
+# \d{4} - 4 digits
+pattern = re.compile(r'(\+1\s*)?\(?\d{3}\)?[\s-]?\s*?\d{3}[\s-]?\s*\d{4}')
+
+def mask_phone(text: str, mask_str: str = "|||PHONE_NUMBER|||") -> str:
+    text, n_sub = re.subn(pattern, mask_str, text)
+    return text, n_sub
+    
+# mask IPv4 address
+pattern = re.compile(r'\b\d+\.\d+\.\d+\.\d+\b')
+
+def mask_ip(text: str, mask_str: str = "|||IP_ADDRESS|||") -> str:
+    text, n_sub = re.subn(pattern, mask_str, text)
+    return text, n_sub
