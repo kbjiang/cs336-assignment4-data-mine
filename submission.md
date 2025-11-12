@@ -33,4 +33,11 @@
 1. about 9/20 are `en`. I think the model is quite accurate, so I would accept its prediction with confidence score as low as `0.4`.
 
 ### 2.4 PII
-#### language_identification
+#### Learning
+1. See `regex.md` for learnings about `regex`.
+#### mask_pii
+1. Done
+1. Done
+1. Done
+1. With masking the model won't be able to learn about what Email address, Phone number and IP address look like. Maybe consider shuffling instead of masking.
+1. 

@@ -389,10 +389,19 @@ With `\b`, we ensure:
 **Example:**
 ```python
 pattern = re.compile(r'\b\d+\.\d+\.\d+\.\d+\b')
-text = "Server IPs: 192.168.1.1 and 10.0.0.255, but not version1.2.3.4"
-matches = pattern.findall(text)
+
+# Test 1: Standard case
+text_1 = "Server IPs: 192.168.1.1 and 10.0.0.255, but not version1.2.3.4"
+matches = pattern.findall(text_1)
 # Returns: ['192.168.1.1', '10.0.0.255']
-# Does NOT match 'version1.2.3.4' due to word boundary
+# Does NOT match 'version1.2.3.4' due to word boundary before the first digit
+
+# Test 2: IP with letter suffix
+text_2 = "Server IPs: 192.168.1.1 and 10.0.0.255s, but not version1.2.3.4"
+matches = pattern.findall(text_2)
+# Returns: ['192.168.1.1'] only
+# Does NOT match '10.0.0.255s' because 's' is a word character (no boundary after '5')
+# Does NOT match 'version1.2.3.4' (no boundary before '1')
 ```
 
 **Validation:**

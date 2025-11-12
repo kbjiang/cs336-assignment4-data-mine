@@ -1,6 +1,17 @@
 import re 
 
+###########################################
 # mask email
+
+# Pattern:
+# Length: The total length of an email address is capped at 320 characters, with 64 for the username and 255 for the domain.
+# Spaces: Spaces are not allowed.
+# Case sensitivity: Email addresses are generally not case-sensitive, meaning User@Example.com is the same as user@example.com.
+
+# Special characters:
+#   - Periods (.), hyphens (-), and underscores (_) are often allowed in the local part.
+#   - They cannot be the first or last character of the local part and cannot appear consecutively (e.g., john..doe@example.com is invalid).
+#   - In the domain, hyphens are allowed but not at the beginning or end of a label (a part between periods). 
 def is_valid_username(username: str) -> bool:
     # 1. allowed special char: [._-]
     # 2. cannot start or end with special chars
@@ -76,9 +87,10 @@ def mask_email(text: str, mask_str: str = "|||EMAIL_ADDRESS|||") -> str:
     
     return ''.join(result), num_masked
 
+###########################################
 # mask US phone number
 
-# pattern
+# pattern explanation:
 # (\+1\s*)? - optional +1 followed by optional spaces
 # \(? - optional opening parenthesis
 # \d{3} - 3 digits
@@ -95,7 +107,9 @@ def mask_phone(text: str, mask_str: str = "|||PHONE_NUMBER|||") -> str:
     text, n_sub = re.subn(pattern, mask_str, text)
     return text, n_sub
     
+###########################################
 # mask IPv4 address
+# notice the usage of `\b`.
 pattern = re.compile(r'\b\d+\.\d+\.\d+\.\d+\b')
 
 def mask_ip(text: str, mask_str: str = "|||IP_ADDRESS|||") -> str:
