@@ -101,17 +101,39 @@ def mask_email(text: str, mask_str: str = "|||EMAIL_ADDRESS|||") -> str:
 # [\s-]? - at most one space or hyphen
 # \s* - zero or more additional spaces
 # \d{4} - 4 digits
-pattern = re.compile(r'(\+1\s*)?\(?\d{3}\)?[\s-]?\s*?\d{3}[\s-]?\s*\d{4}')
+
+# Why two patterns
+# need the 1st `\b` to not partially match long digits like "1213141515517"
+# however, country code `+1` do not like leading `\b`, for e.g. "\n+12259790721\n"
+
+# Pattern 1: Phone numbers WITHOUT country code
+# Use (?<!\d) instead of \b to allow matching after '(' or other non-digit characters
+pattern_without_country_code = re.compile(r'(?<!\d)\(?\d{3}\)?[\s-]?\s*\d{3}[\s-]?\s*\d{4}\b')
+
+# Pattern 2: Phone numbers WITH country code (+1)
+pattern_with_country_code = re.compile(r'\+1\s*\(?\d{3}\)?[\s-]?\s*\d{3}[\s-]?\s*\d{4}\b')
 
 def mask_phone(text: str, mask_str: str = "|||PHONE_NUMBER|||") -> str:
-    text, n_sub = re.subn(pattern, mask_str, text)
-    return text, n_sub
+    """Mask phone numbers in text using two-pattern approach"""
+    # First mask numbers with +1 (no leading boundary needed - + creates natural separation)
+    text, count1 = re.subn(pattern_with_country_code, mask_str, text)
+    # Then mask numbers without +1 (uses (?<!\d) to avoid matching in long digit sequences)
+    text, count2 = re.subn(pattern_without_country_code, mask_str, text)
+    return text, count1 + count2
+
+
+def mask_phone(text: str, mask_str: str = "|||PHONE_NUMBER|||") -> str:
+    # First mask numbers with +1
+    text, count1 = re.subn(pattern_with_country_code, mask_str, text)
+    # Then mask numbers without +1
+    text, count2 = re.subn(pattern_without_country_code, mask_str, text)
+    return text, count1 + count2
     
 ###########################################
 # mask IPv4 address
 # notice the usage of `\b`.
-pattern = re.compile(r'\b\d+\.\d+\.\d+\.\d+\b')
+pattern_ip = re.compile(r'\b\d+\.\d+\.\d+\.\d+\b')
 
 def mask_ip(text: str, mask_str: str = "|||IP_ADDRESS|||") -> str:
-    text, n_sub = re.subn(pattern, mask_str, text)
+    text, n_sub = re.subn(pattern_ip, mask_str, text)
     return text, n_sub

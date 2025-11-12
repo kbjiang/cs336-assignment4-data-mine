@@ -285,13 +285,183 @@ Breaking it down:
 
 But prevents multiple hyphens or multiple `)` characters, which would be invalid phone number formats.
 
-### Final Phone Number Pattern
+### Word Boundaries with Phone Numbers
+
+Adding `\b` to phone patterns requires careful consideration:
+
+**Challenge with a single pattern:**
 ```python
-phone_pattern = re.compile(r'(\+1\s*)?\(?\d{3}\)?[\s-]?\s*\d{3}[\s-]?\s*\d{4}')
+# Attempting to use \b on both ends
+pattern = re.compile(r'\b(\+1\s*)?\(?\d{3}\)?[\s-]?\s*\d{3}[\s-]?\s*\d{4}\b')
+```
+
+**Problem:** `\b` at the start conflicts with `+1` prefix:
+- For `+1234567890`: After matching `+1`, we're at the `2` (word character)
+- `\b` requires a boundary, but `1` and `2` are both word characters (no boundary between them)
+- Result: Pattern fails to match `+1234567890`
+
+**Why we need boundaries:**
+- **Without leading boundary**: Matches within long digit sequences like `12131415161718`
+- **Without trailing boundary**: Matches phone numbers with suffixes like `1234567890th`
+
+### Two-Pattern Solution (Recommended)
+
+Split into two separate patterns for clarity and correctness:
+
+```python
+import re
+
+# Pattern 1: Phone numbers WITH country code (+1)
+pattern_with_country_code = re.compile(r'\+1\s*\(?\d{3}\)?[\s-]?\s*\d{3}[\s-]?\s*\d{4}\b')
+
+# Pattern 2: Phone numbers WITHOUT country code
+# Use (?<!\d) instead of \b to allow matching after '(' or other non-digit characters
+pattern_without_country_code = re.compile(r'(?<!\d)\(?\d{3}\)?[\s-]?\s*\d{3}[\s-]?\s*\d{4}\b')
 
 def mask_phone(text: str, mask_str: str = "|||PHONE_NUMBER|||") -> str:
-    return re.sub(phone_pattern, mask_str, text)
+    """Mask phone numbers in text using two-pattern approach"""
+    # First mask numbers with +1 (no leading boundary needed - + creates natural separation)
+    text, count1 = re.subn(pattern_with_country_code, mask_str, text)
+    # Then mask numbers without +1 (uses (?<!\d) to avoid matching in long digit sequences)
+    text, count2 = re.subn(pattern_without_country_code, mask_str, text)
+    return text, count1 + count2
 ```
+
+**Why this works:**
+
+**Pattern 1** (`\+1...`):
+- No leading boundary needed because `+` is a non-word character
+- This naturally creates separation between any preceding text and the phone number
+- Trailing `\b` prevents matching numbers like `+11234567890` (11 digits after +1)
+
+**Pattern 2** (`(?<!\d)\(?\d{3}...`):
+- `(?<!\d)` is a **negative lookbehind** that ensures no digit precedes the match
+- Unlike `\b`, it allows matching after `(` or other non-digit characters
+- This matches `(283)-182-3829` even though `(` is a non-word character
+- Prevents matching within long digit sequences like `12131415161718`
+- Trailing `\b` prevents matching numbers with suffixes like `1234567890th`
+
+**Test examples:**
+```python
+# Test 1: Both formats with boundaries
+text = "USA\n+12234567890\n|||EMAIL_ADDRESS|||\n1234567890\n© 2022 3RTE"
+result, count = mask_phone(text, "XXXX")
+# result: 'USA\nXXXX\n|||EMAIL_ADDRESS|||\nXXXX\n© 2022 3RTE'
+# count: 2
+
+# Test 2: Avoid matching long digit sequences
+text = "12131415161718"
+result, count = mask_phone(text, "XXXX")
+# result: '12131415161718'
+# count: 0 (no match - (?<!\d) prevents matching within the sequence)
+
+# Test 3: Match numbers with parentheses
+text = "Call (555)-123-4567 or (555) 123 4567"
+result, count = mask_phone(text, "XXXX")
+# result: 'Call XXXX or XXXX'
+# count: 2 (both matched despite '(' being non-word character)
+
+# Test 4: Various formats
+text = "Call (555)-123-4567 or 555 123 4567 or +1-555-123-4567"
+result, count = mask_phone(text, "XXXX")
+# result: 'Call XXXX or XXXX or XXXX'
+# count: 3
+```
+
+**Benefits of two-pattern approach:**
+1. **Clearer logic**: Each pattern handles one specific case
+2. **Flexible boundaries**: Can use different boundary strategies for each pattern
+3. **Easier to maintain**: Each pattern can be modified independently
+4. **Better readability**: Pattern intent is obvious from inspection
+
+**About negative lookbehind `(?<!...)`:**
+- `(?<!\d)` means "not preceded by a digit"
+- Unlike `\b`, it doesn't require a word/non-word transition
+- Allows more flexible matching (e.g., after `(` or at start of string)
+- Still prevents matching within long digit sequences
+
+### Final Phone Number Pattern
+```python
+import re
+
+# Pattern 1: Phone numbers WITH country code
+pattern_with_country_code = re.compile(r'\+1\s*\(?\d{3}\)?[\s-]?\s*\d{3}[\s-]?\s*\d{4}\b')
+
+# Pattern 2: Phone numbers WITHOUT country code
+# Use (?<!\d) instead of \b to allow '(' at the start
+pattern_without_country_code = re.compile(r'(?<!\d)\(?\d{3}\)?[\s-]?\s*\d{3}[\s-]?\s*\d{4}\b')
+
+def mask_phone(text: str, mask_str: str = "|||PHONE_NUMBER|||") -> str:
+    """Mask US phone numbers with optional +1 country code"""
+    # First pass: mask numbers with +1
+    text, count1 = re.subn(pattern_with_country_code, mask_str, text)
+    # Second pass: mask numbers without +1
+    text, count2 = re.subn(pattern_without_country_code, mask_str, text)
+    return text, count1 + count2
+```
+
+
+### Regex Search Functions: `re.match()` vs Others
+
+Different regex functions search in different ways:
+
+**`re.match(pattern, text)`** - Matches only at the **start** of the string
+```python
+pattern = re.compile(r'\d+')
+text = "Hello 123 World"
+
+re.match(pattern, text)  # None (doesn't start with digits)
+re.match(pattern, "123 World")  # <Match object> (starts with digits)
+```
+
+**`re.search(pattern, text)`** - Finds first match **anywhere** in the string
+```python
+pattern = re.compile(r'\d+')
+text = "Hello 123 World"
+
+re.search(pattern, text)  # <Match object> at position 6 ('123')
+```
+
+**`re.findall(pattern, text)`** - Returns list of **all matches** in the string
+```python
+pattern = re.compile(r'\d+')
+text = "Hello 123 World 456"
+
+re.findall(pattern, text)  # ['123', '456']
+```
+
+**`re.finditer(pattern, text)`** - Returns iterator of **all match objects**
+```python
+pattern = re.compile(r'\d+')
+text = "Hello 123 World 456"
+
+for match in re.finditer(pattern, text):
+    print(f"Found '{match.group()}' at position {match.start()}")
+# Found '123' at position 6
+# Found '456' at position 16
+```
+
+**`re.sub(pattern, replacement, text)`** - Replaces **all matches** in the string
+```python
+pattern = re.compile(r'\d+')
+text = "Hello 123 World 456"
+
+re.sub(pattern, "XXX", text)  # "Hello XXX World XXX"
+```
+
+**`re.subn(pattern, replacement, text)`** - Like `re.sub()` but returns **(new_string, count)**
+```python
+pattern = re.compile(r'\d+')
+text = "Hello 123 World 456"
+
+result, count = re.subn(pattern, "XXX", text)
+# result = "Hello XXX World XXX"
+# count = 2
+```
+
+**Key takeaway:**
+- Use `re.match()` only when you need to validate that a string **starts with** a pattern
+- For finding patterns anywhere in text, use `re.search()`, `re.findall()`, or `re.sub()`
 
 ## IP Address Masking
 
