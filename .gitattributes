@@ -1,3 +1,1 @@
-cs336_data/positive_texts.pkl filter=lfs diff=lfs merge=lfs -text
-cs336_data/negative_texts.pkl filter=lfs diff=lfs merge=lfs -text
 cs336_data/subsampled_positive_urls.warc.gz filter=lfs diff=lfs merge=lfs -text
