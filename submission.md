@@ -40,4 +40,13 @@
 1. Done
 1. Done
 1. With masking the model won't be able to learn about what Email address, Phone number and IP address look like. Maybe consider shuffling instead of masking.
-1. 
+1. Did well on emails; apparently it misses a lot of non-us phone numbers; not much IP addresses showed up.
+
+### 2.5 Harmful content
+#### harmful_content
+1. Done
+1. Done
+1. Issues
+    1. the model does not work on non-english languages, needs multi-lingual models
+    <!-- 1. false negatives when only small part of the webpage is harmful -->
+1. Not many NSFW or Toxic pages in English (a lot in Chinese)
