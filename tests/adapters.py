@@ -52,7 +52,9 @@ def run_classify_quality(text: str) -> tuple[Any, float]:
 
 
 def run_gopher_quality_filter(text: str) -> bool:
-    raise NotImplementedError
+    # raise NotImplementedError
+    from cs336_data.gopher_quality_filter import gopher_quality_filter
+    return gopher_quality_filter(text)
 
 
 def run_exact_line_deduplication(

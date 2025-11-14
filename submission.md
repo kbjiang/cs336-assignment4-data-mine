@@ -50,3 +50,12 @@
     1. the model does not work on non-english languages, needs multi-lingual models
     <!-- 1. false negatives when only small part of the webpage is harmful -->
 1. Not many NSFW or Toxic pages in English (a lot in Chinese)
+
+### 2.6 Quality Rules
+#### gopher_quality_filters
+1. Done
+1. Does not work on non-latin language like Chinese.
+
+### 2.7 Quality Classifier
+#### quality_classifier
+1. Done. See `submission.ipynb`.
