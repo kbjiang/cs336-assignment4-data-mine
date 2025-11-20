@@ -54,6 +54,24 @@ def get_signatures(input_files: list[str | PathLike], num_hashes: int, ngrams: i
         signatures.append(signature)
     return signatures
 
+# faster solution would be run all hashes for the same ngram at inner loop
+def get_signature_fast(file_path, seeds, ngrams):
+    """Process a single file's signatures"""
+    file_signatures = []
+    with open(file_path) as f:
+        doc_words = normalize_text(f.read())
+        
+        signature = [float("inf")] * len(seeds)
+        for i in range(len(doc_words) - ngrams):
+            ngram_str = " ".join(doc_words[i:i+ngrams])
+            for j, seed in enumerate(seeds):
+                hash_val = mmh3.hash(ngram_str, seed)
+                signature[j] = min(signature[j], hash_val)
+        
+        file_signatures.append(signature)
+    return file_signatures
+
+
 def get_candidates(signatures: list[list[int]], num_bands: int) -> list[tuple[int]]:
     sig_size = len(signatures[0])
     assert sig_size % num_bands == 0, "num of hashes need to be divisible by num of bands"
