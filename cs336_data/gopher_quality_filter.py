@@ -1,10 +1,10 @@
 import nltk
 import re
 
-def valid_words(text):
+def valid_words(text, min_word_cnt, max_word_cnt):
     # num of words requirement
     words = nltk.word_tokenize(text)
-    if len(words) < 50 or len(words) > 1e5:
+    if len(words) < min_word_cnt or len(words) > max_word_cnt:
         return False
 
     # word length requirement
@@ -27,5 +27,5 @@ def valid_lines(text):
         return True
     return False
 
-def gopher_quality_filter(text):
-    return valid_words(text) and valid_lines(text)
+def gopher_quality_filter(text, min_word_cnt=50, max_word_cnt=1e5):
+    return valid_words(text, min_word_cnt, max_word_cnt) and valid_lines(text)
