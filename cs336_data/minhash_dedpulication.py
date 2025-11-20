@@ -32,7 +32,7 @@ def minhashing(doc_words: list[str], ngrams: int, seed: int) -> int:
     """each seed corresponds to one hash func"""
     minhash = float("inf")
 
-    # no need to get set of words because we are taking the min of hash values
+    # no need to get set of ngrams because we are taking the min of hash values
     for i in range(len(doc_words) - ngrams): 
         ngram_str = " ".join(doc_words[i:i+ngrams])
         # Hashing a string to a 32-bit integer
