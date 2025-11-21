@@ -13,7 +13,7 @@ def get_signatures_single_file(file_path, file_idx, seeds, ngrams):
     """Process a single file's signatures"""
     signatures = []
     with open(file_path) as f:
-        for line in f.readlines():
+        for line_id, line in enumerate(f.readlines()):
             doc = json.loads(line)['text']
             doc_words = normalize_text(doc)
             
@@ -24,72 +24,53 @@ def get_signatures_single_file(file_path, file_idx, seeds, ngrams):
                     hash_val = mmh3.hash(ngram_str, seed)
                     signature[j] = min(signature[j], hash_val)
             
-            signatures.append(signature)
+            signatures.append({
+                'jsonl_file': Path(file_path).name,
+                'line_id': line_id,
+                'signatures': signature
+            })
     return file_idx, signatures
 
 def get_signatures_parallel_incremental(
     input_files: list[str | PathLike], 
     num_hashes: int, 
     ngrams: int,
-    output_file: str,
-    checkpoint_interval: int = 100
+    output_dir: str,
+    batch_size: int = 100
 ) -> None:
-    """Parallel processing with incremental saving"""
+    """Parallel processing with batch-wise saving"""
     seeds = [random.randint(0, 2**32-1) for _ in range(num_hashes)]
     n_workers = len(os.sched_getaffinity(0))
-    
-    output_path = Path(output_file)
-    checkpoint_file = output_path.with_suffix('.checkpoint')
-    metadata_file = output_path.with_suffix('.metadata.pkl')
-    
-    # Resume from checkpoint if exists
-    start_idx = 0
-    if checkpoint_file.exists():
-        with open(checkpoint_file, 'r') as f:
-            start_idx = int(f.read().strip())
-        print(f"Resuming from file {start_idx}")
-    else:
-        # Save metadata on first run
-        with open(metadata_file, 'wb') as meta_f:
-            pickle.dump({
-                'input_files': [str(f) for f in input_files],
-                'num_hashes': num_hashes,
-                'ngrams': ngrams,
-                'seeds': seeds
-            }, meta_f)
-    
-    # Open output file in append mode
-    mode = 'ab' if start_idx > 0 else 'wb'
-    
-    with open(output_path, mode) as out_f:
-        with ProcessPoolExecutor(max_workers=n_workers) as executor:
-            # Process in batches
-            for batch_start in range(start_idx, len(input_files), checkpoint_interval):
-                batch_end = min(batch_start + checkpoint_interval, len(input_files))
-                batch = input_files[batch_start:batch_end]
-                
-                futures = {executor.submit(get_signatures_single_file, fp, batch_start + i, seeds, ngrams): batch_start + i
-                           for i, fp in enumerate(batch)}
-                
-                # Collect results in order
-                results = {}
-                for future in tqdm(as_completed(futures), desc=f"Batch {batch_start}-{batch_end}", total=len(futures)):
-                    file_idx, signatures = future.result()
-                    results[file_idx] = signatures
 
-                # TODO: better mapping between file path/line number with output signatures, this is important for clustering
-                # Save in order
+    with ProcessPoolExecutor(max_workers=n_workers) as executor:
+        # Process in batches
+        for batch_start in range(0, len(input_files), batch_size):
+            batch_end = min(batch_start + batch_size, len(input_files))
+            batch = input_files[batch_start:batch_end]
+            
+            # Check if this batch file already exists
+            batch_output_file = Path(output_dir) / f"signatures_batch_{batch_start:04d}.pkl"
+            if batch_output_file.exists():
+                print(f"Skipping batch {batch_start}-{batch_end}, file already exists")
+                continue
+            
+            futures = {executor.submit(get_signatures_single_file, fp, batch_start + i, seeds, ngrams): batch_start + i
+                       for i, fp in enumerate(batch)}
+            
+            # Collect results in order
+            results = {}
+            for future in tqdm(as_completed(futures), desc=f"Batch {batch_start}-{batch_end}", total=len(futures)):
+                file_idx, signatures = future.result()
+                results[file_idx] = signatures
+
+            # Save batch to separate file
+            with open(batch_output_file, 'wb') as batch_f:
                 for idx in sorted(results.keys()):
-                    pickle.dump((idx, results[idx]), out_f)
-                    out_f.flush()
-                
-                # Update checkpoint
-                with open(checkpoint_file, 'w') as cf:
-                    cf.write(str(batch_end))
-    
-    # Clean up checkpoint on completion
-    checkpoint_file.unlink()
-    print(f"Saved signatures to {output_path}")
+                    # results[idx] is a list of dicts, save each document's metadata
+                    for doc_data in results[idx]:
+                        pickle.dump(doc_data, batch_f)
+            
+            print(f"Saved batch {batch_start}-{batch_end} to {batch_output_file}")
 
 if __name__ == "__main__":
     input_dir = Path("/home/azureuser/mount/CC-filtered-50")
@@ -98,8 +79,8 @@ if __name__ == "__main__":
     # Usage
     get_signatures_parallel_incremental(
         input_files, 
-        num_hashes=2400, 
+        num_hashes=20, 
         ngrams=5,
-        output_file="signatures.pkl",
-        checkpoint_interval=100
+        output_dir="/home/azureuser/mount/",
+        batch_size=29
     )
