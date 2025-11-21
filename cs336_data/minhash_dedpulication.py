@@ -72,6 +72,7 @@ def get_signature_fast(file_path, seeds, ngrams):
     return file_signatures
 
 
+# this is O(n**2) which is bad
 def get_candidates(signatures: list[list[int]], num_bands: int) -> list[tuple[int]]:
     sig_size = len(signatures[0])
     assert sig_size % num_bands == 0, "num of hashes need to be divisible by num of bands"
@@ -88,6 +89,17 @@ def get_candidates(signatures: list[list[int]], num_bands: int) -> list[tuple[in
                     candidates.append((j, k))
 
     return set(candidates)
+
+# this is O(n) 
+from collections import defaultdict
+def get_candidates_single_band_fast(signatures_band: list[list[int]]) -> dict[tuple, set[int]]:
+    """Fast bucketing approach - O(n) average case"""
+    buckets = defaultdict(set)
+    # Group by band hash
+    for idx, band in enumerate(signatures_band):
+        key = tuple(band)  # Convert to hashable tuple
+        buckets[key].add(idx)
+    return {k: v for k, v in buckets.items() if len(v) > 1}
 
 def get_jaccard_similarity(doc_words_0: list[int], doc_words_1: list[int]) -> float:
     return len(set(doc_words_0).intersection(set(doc_words_1))) / len(set(doc_words_0).union(set(doc_words_1)))

@@ -77,6 +77,7 @@ def get_signatures_parallel_incremental(
                     file_idx, signatures = future.result()
                     results[file_idx] = signatures
 
+                # TODO: better mapping between file path/line number with output signatures, this is important for clustering
                 # Save in order
                 for idx in sorted(results.keys()):
                     pickle.dump((idx, results[idx]), out_f)
