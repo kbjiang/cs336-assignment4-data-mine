@@ -78,7 +78,7 @@ def merge_overlapping_sets(sets: list[set[int]], keep_singletons: bool = False) 
     uf = UnionFind()
     
     # Union all elements within each set
-    for s in sets:
+    for s in tqdm(sets, desc="Merging candidate sets"):
         elements = list(s)
         # Add all elements to union-find (even singletons)
         for elem in elements:
@@ -87,6 +87,7 @@ def merge_overlapping_sets(sets: list[set[int]], keep_singletons: bool = False) 
         for i in range(1, len(elements)):
             uf.union(elements[0], elements[i])
     
+    print("Extracting final clusters...")
     clusters = uf.get_clusters()
     
     # Filter out singletons if requested
@@ -98,72 +99,104 @@ def merge_overlapping_sets(sets: list[set[int]], keep_singletons: bool = False) 
 
 if __name__ == "__main__":
     sig_dir = "/home/azureuser/mount/"
-    batch_files = sorted(Path(sig_dir).glob('signatures_batch_*.pkl'))
-    print(f"Found {len(batch_files)} files to load")
-
+    
+    # Check cache files
+    metadata_cache = Path(sig_dir) / "metadata_cache.pkl"
+    candidates_cache = Path(sig_dir) / "candidates_cache.pkl"
+    
     #####################################################
 
-    # load pickle files 
-    # Memory-efficient: Load files incrementally without massive temp buffers
-    # Signature into numpy array, metadata as list of dicts
-    # First pass: count total documents to pre-allocate array
-    print("\n# Step 1: loading signature pickle files")
-    print("Counting documents...")
-    total_docs = 0
-    for batch_file in tqdm(batch_files, desc="Counting"):
-        with open(batch_file, 'rb') as f:
-            while True:
-                try:
-                    pickle.load(f)
-                    total_docs += 1
-                except EOFError:
-                    break
-
-    print(f"Total documents: {total_docs}")
-
-    # Pre-allocate arrays (much more memory efficient)
-    sigs = np.empty((total_docs, 2400), dtype=np.int32)
-    all_metadata = []
-
-    # Second pass: fill arrays incrementally
-    print("Loading signatures...")
-    doc_idx = 0
-    for batch_file in tqdm(batch_files, desc="Loading files"):
-        with open(batch_file, 'rb') as f:
-            while True:
-                try:
-                    doc_data = pickle.load(f)
-                    sigs[doc_idx] = doc_data['signatures']
-                    all_metadata.append({
-                        'jsonl_file': doc_data.get('jsonl_file'),
-                        'line_id': doc_data.get('line_id')
-                    })
-                    doc_idx += 1
-                except EOFError:
-                    break
+    # Step 1: load signature pickle files 
+    # Skip if both candidates and metadata caches exist
+    if candidates_cache.exists() and metadata_cache.exists():
+        print("\n# Step 1: Skipped (loading from caches)")
+        with open(metadata_cache, 'rb') as f:
+            all_metadata = pickle.load(f)
+        total_docs = len(all_metadata)
+        print(f"Loaded metadata for {total_docs} documents")
+        sigs = None  # Not needed when loading from cache
+    else:
+        batch_files = sorted(Path(sig_dir).glob('signatures_batch_*.pkl'))
+        print(f"Found {len(batch_files)} files to load")
         
-        # Force garbage collection after each file
-        gc.collect()
-        print(f"  Loaded {batch_file.name}, progress: {doc_idx}/{total_docs}")
+        # Memory-efficient: Load files incrementally without massive temp buffers
+        # Signature into numpy array, metadata as list of dicts
+        # First pass: count total documents to pre-allocate array
+        print("\n# Step 1: loading signature pickle files")
+        print("Counting documents...")
+        total_docs = 0
+        for batch_file in tqdm(batch_files, desc="Counting"):
+            with open(batch_file, 'rb') as f:
+                while True:
+                    try:
+                        pickle.load(f)
+                        total_docs += 1
+                    except EOFError:
+                        break
 
-    print(f"\nFinal shape: {sigs.shape}")
-    print(f"Memory usage: {sigs.nbytes / 1024**3:.2f} GB")
+        print(f"Total documents: {total_docs}")
+
+        # Pre-allocate arrays (much more memory efficient)
+        sigs = np.empty((total_docs, 2400), dtype=np.int32)
+        all_metadata = []
+
+        # Second pass: fill arrays incrementally
+        print("Loading signatures...")
+        doc_idx = 0
+        for batch_file in tqdm(batch_files, desc="Loading files"):
+            with open(batch_file, 'rb') as f:
+                while True:
+                    try:
+                        doc_data = pickle.load(f)
+                        sigs[doc_idx] = doc_data['signatures']
+                        all_metadata.append({
+                            'jsonl_file': doc_data.get('jsonl_file'),
+                            'line_id': doc_data.get('line_id')
+                        })
+                        doc_idx += 1
+                    except EOFError:
+                        break
+            
+            # Force garbage collection after each file
+            gc.collect()
+            print(f"  Loaded {batch_file.name}, progress: {doc_idx}/{total_docs}")
+
+        print(f"\nFinal shape: {sigs.shape}")
+        print(f"Memory usage: {sigs.nbytes / 1024**3:.2f} GB")
+        
+        # Save metadata for future runs
+        print(f"Saving metadata to {metadata_cache}...")
+        with open(metadata_cache, 'wb') as f:
+            pickle.dump(all_metadata, f)
+        print("Metadata saved!")
 
     #####################################################
 
     # Get candidates by band
     print("\n# Step 2: generating duplicate candidates by band")
-    band_size = 16
-    num_bands = sigs.shape[1] // band_size
     
-    candidates = []
-    
-    # Sequential processing with progress bar - faster startup, no thread overhead
-    for band_idx in tqdm(range(num_bands), desc="Processing bands"):
-        band_candidates = get_candidates_single_band(sigs, band_idx, band_size)
-        candidates.extend(band_candidates)
+    if candidates_cache.exists():
+        print(f"Loading candidates from cache: {candidates_cache}")
+        with open(candidates_cache, 'rb') as f:
+            candidates = pickle.load(f)
+        print(f"Loaded {len(candidates)} candidate sets")
+    else:
+        band_size = 16
+        num_bands = sigs.shape[1] // band_size
+        candidates = []
+        
+        # Sequential processing with progress bar - faster startup, no thread overhead
+        for band_idx in tqdm(range(num_bands), desc="Processing bands"):
+            band_candidates = get_candidates_single_band(sigs, band_idx, band_size)
+            candidates.extend(band_candidates)
 
-    print(f"Total candidate sets: {len(candidates)}")
+        print(f"Total candidate sets: {len(candidates)}")
+        
+        # Save candidates for future runs
+        print(f"Saving candidates to {candidates_cache}...")
+        with open(candidates_cache, 'wb') as f:
+            pickle.dump(candidates, f)
+        print("Candidates saved!")
 
     #####################################################
 
