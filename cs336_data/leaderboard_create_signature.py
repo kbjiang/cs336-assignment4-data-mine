@@ -73,14 +73,14 @@ def get_signatures_parallel_incremental(
             print(f"Saved batch {batch_start}-{batch_end} to {batch_output_file}")
 
 if __name__ == "__main__":
-    input_dir = Path("/home/azureuser/mount/CC-filtered-50")
+    input_dir = Path("/home/azureuser/mount/CC-filtered")
     input_files = sorted(input_dir.glob("*.jsonl"))
     print(f"Total input files: {len(input_files)}.")
     # Usage
     get_signatures_parallel_incremental(
         input_files, 
-        num_hashes=20, 
+        num_hashes=2400, 
         ngrams=5,
         output_dir="/home/azureuser/mount/",
-        batch_size=29
+        batch_size=512
     )
