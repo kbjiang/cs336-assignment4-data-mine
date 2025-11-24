@@ -33,8 +33,7 @@ class TrainingConfig:
     dtype: str = "bfloat16"
     train_batch_size: int = 128
     eval_batch_size: int = "${training.train_batch_size}"
-    # train_steps: int = 100_000
-    train_steps: int = 4_000
+    train_steps: int = 100_000
     gradient_accumulation_steps: int = 1
     compile: bool = True
     eval_iterations: int = 1_000
